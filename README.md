@@ -33,3 +33,14 @@ Conta demo criada pelo seed: `demo@salaojade.dev` / `chaverde123`.
 Os horários não ficam salvos no banco: são calculados na hora em [`src/lib/availability.ts`](src/lib/availability.ts).
 A cada 30 minutos dentro do expediente, um horário fica livre se ainda não passou e se as reservas que se
 sobrepõem a ele não atingiram a `capacity` da experiência (mesas ou salas simultâneas).
+
+## Sem reserva dupla
+
+Dois clientes podem clicar no mesmo horário ao mesmo tempo. [`createBooking`](src/lib/bookings.ts) roda numa
+transação que trava a linha da experiência (`SELECT … FOR UPDATE`): as reservas dela são checadas e gravadas uma
+de cada vez, e o horário é validado pela mesma função que monta a grade. Quem chega depois recebe
+"esse horário acabou de ficar indisponível" e a grade é atualizada.
+
+[`bookings.db.test.ts`](src/lib/bookings.db.test.ts) prova isso contra o Postgres real: 10 pedidos simultâneos
+geram exatamente 1 reserva quando a capacidade é 1, e exatamente 6 quando é 6. Esse teste precisa do banco no ar
+(`npm run db:up` e `npm run db:seed`).

@@ -24,6 +24,18 @@ export function salonTime(date: string, minutes: number): Date {
   return new Date(`${date}T${hh}:${mm}:00${SALON_UTC_OFFSET}`);
 }
 
+/** Dia local do salão ("YYYY-MM-DD") em que cai o instante `at`. */
+export function salonDate(at: Date): string {
+  const offsetMin = Number(SALON_UTC_OFFSET.slice(0, 3)) * 60;
+  return new Date(at.getTime() + offsetMin * 60_000).toISOString().slice(0, 10);
+}
+
+export function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 /** 0 = domingo … 6 = sábado, no fuso do salão. */
 export function salonWeekday(date: string): number {
   return salonTime(date, 12 * 60).getUTCDay();

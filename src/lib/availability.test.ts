@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSlots, overlaps, salonTime, salonWeekday } from "./availability";
+import { addDays, buildSlots, overlaps, salonDate, salonTime, salonWeekday } from "./availability";
 
 const DATE = "2026-11-07"; // sábado
 const HOURS = { opensAt: 11 * 60, closesAt: 22 * 60 };
@@ -12,6 +12,16 @@ const times = (slots: { startsAt: Date }[]) =>
 describe("salonTime / salonWeekday", () => {
   it("converte hora local do salão para UTC", () => {
     expect(salonTime(DATE, 11 * 60).toISOString()).toBe("2026-11-07T14:00:00.000Z");
+  });
+
+  it("salonDate usa o dia local, não o UTC", () => {
+    // 01:30 UTC de domingo ainda é sábado 22:30 em São Paulo
+    expect(salonDate(new Date("2026-11-08T01:30:00Z"))).toBe("2026-11-07");
+    expect(salonDate(new Date("2026-11-08T03:00:00Z"))).toBe("2026-11-08");
+  });
+
+  it("addDays atravessa mês e ano", () => {
+    expect(addDays("2026-12-30", 3)).toBe("2027-01-02");
   });
 
   it("calcula o dia da semana no fuso do salão", () => {
