@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { hash } from "@node-rs/argon2";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
@@ -44,7 +45,12 @@ async function main() {
     await db.openingHours.upsert({ where: { weekday }, update: hours, create: { weekday, ...hours } });
   }
 
-  console.log(`Seed ok: ${experiences.length} experiências, 6 dias de funcionamento`);
+  // Conta demo pública, documentada no README; só existe em bancos semeados
+  const demo = { name: "Marina Souza", email: "demo@salaojade.dev" };
+  const passwordHash = await hash("chaverde123");
+  await db.user.upsert({ where: { email: demo.email }, update: { passwordHash }, create: { ...demo, passwordHash } });
+
+  console.log(`Seed ok: ${experiences.length} experiências, 6 dias de funcionamento, conta demo ${demo.email}`);
 }
 
 main()

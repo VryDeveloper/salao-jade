@@ -17,6 +17,8 @@ npm run db:seed      # experiências e horário de funcionamento
 npm run dev
 ```
 
+Conta demo criada pelo seed: `demo@salaojade.dev` / `chaverde123`.
+
 ## Scripts
 
 | Script | O que faz |
