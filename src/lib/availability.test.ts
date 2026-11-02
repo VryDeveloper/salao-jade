@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, buildSlots, overlaps, salonDate, salonTime, salonWeekday } from "./availability";
+import { addDays, buildSlots, isChangeable, overlaps, salonDate, salonTime, salonWeekday } from "./availability";
 
 const DATE = "2026-11-07"; // sábado
 const HOURS = { opensAt: 11 * 60, closesAt: 22 * 60 };
@@ -63,6 +63,14 @@ describe("buildSlots", () => {
   it("horário que já passou fica indisponível", () => {
     const slots = buildSlots({ ...base, now: at("15:10") });
     expect(times(slots.filter((s) => s.available))[0]).toBe("15:30");
+  });
+});
+
+describe("isChangeable", () => {
+  it("permite até exatamente 24h antes", () => {
+    const startsAt = at("16:00");
+    expect(isChangeable(startsAt, new Date(startsAt.getTime() - 24 * 3_600_000))).toBe(true);
+    expect(isChangeable(startsAt, new Date(startsAt.getTime() - 24 * 3_600_000 + 1))).toBe(false);
   });
 });
 

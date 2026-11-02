@@ -2,7 +2,7 @@
 import "dotenv/config";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addDays, salonDate, salonTime, salonWeekday } from "./availability";
-import { BookingError, createBooking } from "./bookings";
+import { BookingError, cancelBooking, createBooking, rescheduleBooking } from "./bookings";
 import { db } from "./db";
 
 const EMAIL = "concorrencia@salaojade.test";
@@ -62,5 +62,44 @@ describe("createBooking valida o pedido", () => {
     const { id } = await experience("cha-e-dim-sum");
     const monday = salonTime(addDays(date, 2), 16 * 60);
     await expect(createBooking({ userId, experienceId: id, startsAt: monday, guests: 2 })).rejects.toThrow(BookingError);
+  });
+});
+
+describe("remarcar e cancelar", () => {
+  const sunday = addDays(date, 1);
+  const at = (minutes: number) => salonTime(sunday, minutes);
+
+  it("remarcar para um horário que se sobrepõe ao atual: a própria reserva não ocupa a vaga", async () => {
+    const { id } = await experience("cerimonia-gongfu"); // capacidade 1
+    const booking = await createBooking({ userId, experienceId: id, startsAt: at(16 * 60), guests: 2 });
+    const moved = await rescheduleBooking({ userId, bookingId: booking.id, startsAt: at(16 * 60 + 30), guests: 3 });
+    expect(moved.startsAt).toEqual(at(16 * 60 + 30));
+    expect(moved.guests).toBe(3);
+  });
+
+  it("não deixa remarcar para um horário que já está lotado", async () => {
+    const { id } = await experience("cerimonia-gongfu");
+    const mine = await createBooking({ userId, experienceId: id, startsAt: at(12 * 60), guests: 2 });
+    const theirs = await createBooking({ userId, experienceId: id, startsAt: at(19 * 60), guests: 2 });
+    await expect(rescheduleBooking({ userId, bookingId: mine.id, startsAt: theirs.startsAt, guests: 2 })).rejects.toThrow(
+      "indisponível",
+    );
+  });
+
+  it("só o dono cancela, e a vaga volta a ficar livre", async () => {
+    const { id } = await experience("cerimonia-gongfu");
+    const booking = await createBooking({ userId, experienceId: id, startsAt: at(14 * 60), guests: 2 });
+    await expect(cancelBooking({ userId: "outro-usuario", bookingId: booking.id })).rejects.toThrow("não encontrada");
+
+    await cancelBooking({ userId, bookingId: booking.id });
+    const again = await createBooking({ userId, experienceId: id, startsAt: at(14 * 60), guests: 2 });
+    expect(again.status).toBe("CONFIRMED");
+  });
+
+  it("recusa alteração a menos de 24h do horário", async () => {
+    const { id } = await experience("cha-e-dim-sum");
+    const booking = await createBooking({ userId, experienceId: id, startsAt: at(18 * 60), guests: 2 });
+    const now = new Date(booking.startsAt.getTime() - 23 * 3_600_000);
+    await expect(cancelBooking({ userId, bookingId: booking.id, now })).rejects.toThrow("24 horas");
   });
 });

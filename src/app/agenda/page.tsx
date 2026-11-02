@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Agendar — Salão Jade" };
 export default function AgendaPage(props: PageProps<"/agenda">) {
   return (
     <>
-      <Suspense fallback={<SiteHeaderShell />}>
-        <SiteHeader />
+      <Suspense fallback={<SiteHeaderShell current="agenda" />}>
+        <SiteHeader current="agenda" />
       </Suspense>
       <main className="mx-auto flex w-full max-w-[1240px] flex-col gap-10 px-5 pt-12 pb-18 sm:px-8">
         <div className="flex flex-col gap-2.5">

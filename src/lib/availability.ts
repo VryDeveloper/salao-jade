@@ -58,6 +58,13 @@ export function buildSlots({ date, hours, durationMin, capacity, bookings, now }
   return slots;
 }
 
+export const CHANGE_DEADLINE_HOURS = 24;
+
+/** Remarcar ou cancelar só até 24h antes do início. */
+export function isChangeable(startsAt: Date, now: Date): boolean {
+  return startsAt.getTime() - now.getTime() >= CHANGE_DEADLINE_HOURS * 3_600_000;
+}
+
 /** Intervalos meio-abertos [início, fim): encostar não é sobrepor. */
 export function overlaps(a: Interval, b: Interval): boolean {
   return a.startsAt < b.endsAt && a.endsAt > b.startsAt;

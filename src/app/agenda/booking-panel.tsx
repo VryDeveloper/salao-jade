@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
 import { FormAlert, primaryButton } from "@/components/field";
 import { formatLongDate, formatTime } from "@/lib/format";
@@ -10,6 +11,8 @@ type Props = {
   /** null quando não há dia aberto na janela */
   day: string | null;
   slots: { startsAt: string; available: boolean }[];
+  /** Presente no modo remarcar */
+  reschedule?: { bookingId: string; code: string; guests: number };
   /** Seções de experiência e dia, renderizadas no servidor */
   children: ReactNode;
 };
@@ -17,10 +20,10 @@ type Props = {
 const sectionTitle = "text-[13px] font-bold tracking-[0.14em] text-label uppercase";
 const slotBase = "h-12 rounded-md text-[15px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
 
-export function BookingPanel({ experience, day, slots, children }: Props) {
+export function BookingPanel({ experience, day, slots, reschedule, children }: Props) {
   const [state, action, pending] = useActionState(bookSlot, undefined);
   const [selected, setSelected] = useState<string | null>(null);
-  const [guests, setGuests] = useState(Math.min(2, experience.maxGuests));
+  const [guests, setGuests] = useState(reschedule?.guests ?? Math.min(2, experience.maxGuests));
   const [dismissed, setDismissed] = useState<string | null>(null);
 
   // Some da seleção se o horário deixou de estar livre (ex.: depois do refresh)
@@ -105,7 +108,7 @@ export function BookingPanel({ experience, day, slots, children }: Props) {
         className="flex flex-[1_1_320px] flex-col gap-[22px] rounded-[10px] border border-[#3a2f27] bg-panel p-7"
       >
         <h2 id="h-resumo" className="font-display text-[30px] font-semibold">
-          Sua reserva
+          {reschedule ? `Remarcar ${reschedule.code}` : "Sua reserva"}
         </h2>
 
         {confirmed ? (
@@ -125,12 +128,16 @@ export function BookingPanel({ experience, day, slots, children }: Props) {
             >
               Fazer outra reserva
             </button>
+            <Link href="/reservas" className="text-center text-sm font-semibold text-gold hover:text-[#e2c27f]">
+              Ver minhas reservas
+            </Link>
           </div>
         ) : (
           <form action={action} className="flex flex-col gap-[22px]">
             <input type="hidden" name="experienceId" value={experience.id} />
             <input type="hidden" name="startsAt" value={chosen?.startsAt ?? ""} />
             <input type="hidden" name="guests" value={guests} />
+            {reschedule && <input type="hidden" name="bookingId" value={reschedule.bookingId} />}
 
             <dl className="flex flex-col gap-4">
               <Row label="Experiência">{experience.name}</Row>
@@ -162,7 +169,7 @@ export function BookingPanel({ experience, day, slots, children }: Props) {
 
             {chosen ? (
               <button type="submit" disabled={pending} className={primaryButton}>
-                {pending ? "Reservando…" : "Confirmar reserva"}
+                {pending ? "Salvando…" : reschedule ? "Confirmar novo horário" : "Confirmar reserva"}
               </button>
             ) : (
               <button
