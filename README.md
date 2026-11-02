@@ -11,7 +11,7 @@ Requisitos: Node 22+ e Docker.
 ```bash
 npm install
 cp .env.example .env
-npm run db:up        # Postgres na porta 5433
+npm run db:up        # Postgres na porta 5434
 npm run db:migrate   # cria as tabelas
 npm run db:seed      # experiências e horário de funcionamento
 npm run dev
