@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: jade
+      POSTGRES_PASSWORD: jade
+      POSTGRES_DB: salao_jade
+    # 5433 para não colidir com um Postgres local na 5432
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

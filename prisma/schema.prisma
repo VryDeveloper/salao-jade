@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  sessions     Session[]
+  bookings     Booking[]
+}
+
+/// id = SHA-256 do token do cookie; o token em si nunca é salvo
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz
+
+  @@index([userId])
+}
+
+model Experience {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String
+  durationMin Int
+  /// quantas reservas podem acontecer ao mesmo tempo (mesas / salas)
+  capacity    Int
+  maxGuests   Int
+  active      Boolean   @default(true)
+  bookings    Booking[]
+}
+
+/// Uma linha por dia aberto; dia sem linha = fechado
+model OpeningHours {
+  /// 0 = domingo … 6 = sábado
+  weekday  Int @id
+  /// minutos desde 00:00 (660 = 11:00)
+  opensAt  Int
+  closesAt Int
+}
+
+model Closure {
+  date   DateTime @id @db.Date
+  reason String?
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model Booking {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experienceId String
+  experience   Experience    @relation(fields: [experienceId], references: [id])
+  startsAt     DateTime      @db.Timestamptz
+  endsAt       DateTime      @db.Timestamptz
+  guests       Int
+  status       BookingStatus @default(CONFIRMED)
+  createdAt    DateTime      @default(now()) @db.Timestamptz
+
+  @@index([experienceId, startsAt])
+  @@index([userId])
+}
