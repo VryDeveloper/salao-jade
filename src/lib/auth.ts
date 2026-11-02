@@ -2,14 +2,14 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { hash, verify } from "@node-rs/argon2";
 import { db } from "./db";
 import { SESSION_COOKIE } from "./session-cookie";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-export type CurrentUser = { id: string; name: string; email: string };
+export type CurrentUser = { id: string; name: string; email: string; role: "USER" | "ADMIN" };
 
 export const hashPassword = (password: string) => hash(password);
 export const verifyPassword = (passwordHash: string, password: string) => verify(passwordHash, password);
@@ -50,7 +50,7 @@ export const getSessionUser = cache(async (): Promise<CurrentUser | null> => {
 
   const session = await db.session.findUnique({
     where: { id: hashToken(token) },
-    select: { expiresAt: true, user: { select: { id: true, name: true, email: true } } },
+    select: { expiresAt: true, user: { select: { id: true, name: true, email: true, role: true } } },
   });
   if (!session || session.expiresAt <= new Date()) return null;
   return session.user;
@@ -60,5 +60,12 @@ export const getSessionUser = cache(async (): Promise<CurrentUser | null> => {
 export async function getCurrentUser(): Promise<CurrentUser> {
   const user = await getSessionUser();
   if (!user) redirect("/entrar");
+  return user;
+}
+
+/** Para o painel do salão: só ADMIN passa. Para os outros a área nem existe (404), em vez de "acesso negado". */
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (user.role !== "ADMIN") notFound();
   return user;
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { Field, FormAlert, primaryButton } from "@/components/field";
+import { MaskLine } from "@/components/mask-line";
 import { login } from "../actions";
 
 export function LoginForm() {
@@ -12,7 +13,9 @@ export function LoginForm() {
     <form action={action} noValidate className="flex w-full max-w-[400px] animate-rise flex-col gap-[22px]">
       <div className="flex flex-col gap-2.5">
         <span className="text-xs font-bold tracking-[0.18em] text-gold uppercase">Bem-vindo de volta</span>
-        <h1 className="font-display text-[52px] leading-none font-semibold">Entrar</h1>
+        <h1 className="font-display text-[52px] leading-none font-semibold">
+          <MaskLine>Entrar</MaskLine>
+        </h1>
         <p className="text-[15px] leading-relaxed text-muted">
           Acesse sua conta para ver os horários livres e gerenciar suas reservas.
         </p>
@@ -50,7 +53,11 @@ export function LoginForm() {
       <div className="h-px bg-line" />
       <p className="text-center text-sm text-muted">
         Ainda não tem conta?{" "}
-        <Link href="/cadastro" className="font-semibold text-gold hover:text-[#e2c27f]">
+        <Link
+          href="/cadastro"
+          transitionTypes={["nav-forward"]}
+          className="font-semibold text-gold hover:text-[#e2c27f]"
+        >
           Criar conta
         </Link>
       </p>

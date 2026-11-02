@@ -5,101 +5,238 @@ import { addDays, salonDate, salonTime, salonWeekday } from "./availability";
 import { BookingError, cancelBooking, createBooking, rescheduleBooking } from "./bookings";
 import { db } from "./db";
 
-const EMAIL = "concorrencia@salaojade.test";
-let userId: string;
+const PREFIX = "dbtest-";
+let users: string[] = [];
 
-// Um sábado daqui a pelo menos uma semana: sempre aberto e no futuro
-let date = addDays(salonDate(new Date()), 7);
-while (salonWeekday(date) !== 6) date = addDays(date, 1);
-const startsAt = salonTime(date, 16 * 60);
+// Um sábado daqui a pelo menos uma semana: sempre aberto, no futuro e fora da janela do e2e
+let saturday = addDays(salonDate(new Date()), 7);
+while (salonWeekday(saturday) !== 6) saturday = addDays(saturday, 1);
+const sunday = addDays(saturday, 1);
+const sat = (minutes: number) => salonTime(saturday, minutes);
+const sun = (minutes: number) => salonTime(sunday, minutes);
 
-const experience = (slug: string) => db.experience.findUniqueOrThrow({ where: { slug } });
+const experienceId = async (slug: string) => (await db.experience.findUniqueOrThrow({ where: { slug } })).id;
 
 beforeAll(async () => {
-  await db.user.deleteMany({ where: { email: EMAIL } });
-  userId = (await db.user.create({ data: { name: "Teste Concorrência", email: EMAIL, passwordHash: "x" } })).id;
+  await db.user.deleteMany({ where: { email: { startsWith: PREFIX } } });
+  users = await Promise.all(
+    Array.from({ length: 12 }, async (_, i) => {
+      const user = await db.user.create({
+        data: { name: `Teste ${i}`, email: `${PREFIX}${i}@salaojade.test`, passwordHash: "x" },
+      });
+      return user.id;
+    }),
+  );
 });
 
 afterAll(async () => {
-  await db.user.deleteMany({ where: { email: EMAIL } }); // apaga as reservas em cascata
+  await db.user.deleteMany({ where: { email: { startsWith: PREFIX } } }); // apaga as reservas em cascata
   await db.$disconnect();
 });
 
-/** Dispara `n` reservas ao mesmo tempo para o mesmo horário. */
-async function race(slug: string, n: number) {
-  const { id } = await experience(slug);
-  const results = await Promise.allSettled(
-    Array.from({ length: n }, () => createBooking({ userId, experienceId: id, startsAt, guests: 2 })),
-  );
-  const rejected = results.filter((r) => r.status === "rejected");
-  for (const r of rejected) expect(r.reason).toBeInstanceOf(BookingError);
-  return results.length - rejected.length;
+/** Dispara os pedidos ao mesmo tempo e devolve as reservas criadas; as recusas têm de ser BookingError. */
+async function race(requests: Parameters<typeof createBooking>[0][]) {
+  const results = await Promise.allSettled(requests.map((r) => createBooking(r)));
+  for (const r of results) if (r.status === "rejected") expect(r.reason).toBeInstanceOf(BookingError);
+  return results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
 }
 
-describe("createBooking com pedidos simultâneos", () => {
-  it("capacidade 1: de 10 pedidos ao mesmo tempo, só 1 vira reserva", async () => {
-    expect(await race("cerimonia-gongfu", 10)).toBe(1);
+describe("pedidos simultâneos", () => {
+  it("10 pessoas no mesmo horário: exatamente 4 conseguem, uma em cada sala", async () => {
+    const id = await experienceId("mesa-de-cha");
+    const created = await race(
+      users
+        .slice(0, 10)
+        .map((userId) => ({
+          userId,
+          experienceId: id,
+          startsAt: sat(16 * 60),
+          durationMin: 60,
+          companions: ["Ana Lima"],
+        })),
+    );
+    expect(created).toHaveLength(4);
+    expect(new Set(created.map((b) => b.roomId)).size).toBe(4);
   });
 
-  it("capacidade 6: de 10 pedidos ao mesmo tempo, exatamente 6 viram reserva", async () => {
-    expect(await race("mesa-de-cha", 10)).toBe(6);
+  it("a mesma pessoa pedindo 5 vezes ao mesmo tempo fica com 1 reserva", async () => {
+    const id = await experienceId("mesa-de-cha");
+    const created = await race(
+      Array.from({ length: 5 }, () => ({
+        userId: users[10],
+        experienceId: id,
+        startsAt: sat(19 * 60),
+        durationMin: 60,
+        companions: ["Ana Lima"],
+      })),
+    );
+    expect(created).toHaveLength(1);
   });
 });
 
-describe("createBooking valida o pedido", () => {
-  it("recusa horário fora da grade de 30 min", async () => {
-    const { id } = await experience("cha-e-dim-sum");
-    const offGrid = salonTime(date, 16 * 60 + 10);
-    await expect(createBooking({ userId, experienceId: id, startsAt: offGrid, guests: 2 })).rejects.toThrow(BookingError);
+describe("regras da reserva", () => {
+  it("a mesma pessoa não consegue reserva sobreposta, nem em outra experiência", async () => {
+    await createBooking({
+      userId: users[11],
+      experienceId: await experienceId("mesa-de-cha"),
+      startsAt: sat(12 * 60),
+      durationMin: 60,
+      companions: ["Ana Lima"],
+    });
+    await expect(
+      createBooking({
+        userId: users[11],
+        experienceId: await experienceId("cha-e-dim-sum"),
+        startsAt: sat(12 * 60 + 30),
+        durationMin: 30,
+        companions: ["Ana Lima"],
+      }),
+    ).rejects.toThrow("Você já tem uma reserva nesse horário");
   });
 
-  it("recusa mais pessoas que o permitido", async () => {
-    const { id, maxGuests } = await experience("cha-e-dim-sum");
-    await expect(createBooking({ userId, experienceId: id, startsAt, guests: maxGuests + 1 })).rejects.toThrow(BookingError);
+  it("guarda a duração escolhida", async () => {
+    const booking = await createBooking({
+      userId: users[11],
+      experienceId: await experienceId("cerimonia-gongfu"),
+      startsAt: sat(13 * 60),
+      durationMin: 120,
+      companions: ["Ana Lima"],
+    });
+    expect(booking.endsAt.getTime() - booking.startsAt.getTime()).toBe(120 * 60_000);
   });
 
-  it("recusa dia fechado (segunda)", async () => {
-    const { id } = await experience("cha-e-dim-sum");
-    const monday = salonTime(addDays(date, 2), 16 * 60);
-    await expect(createBooking({ userId, experienceId: id, startsAt: monday, guests: 2 })).rejects.toThrow(BookingError);
+  it("guarda os nomes dos acompanhantes e conta o titular", async () => {
+    const booking = await createBooking({
+      userId: users[11],
+      experienceId: await experienceId("cha-e-dim-sum"),
+      startsAt: sat(19 * 60),
+      durationMin: 60,
+      companions: ["  Ana Lima ", "Bia Rocha"],
+    });
+    expect(booking.companions).toEqual(["Ana Lima", "Bia Rocha"]);
+    expect(booking.guests).toBe(3);
+  });
+
+  it("recusa acompanhante sem nome", async () => {
+    await expect(
+      createBooking({
+        userId: users[11],
+        experienceId: await experienceId("cha-e-dim-sum"),
+        startsAt: sat(21 * 60),
+        durationMin: 30,
+        companions: ["Ana Lima", " "],
+      }),
+    ).rejects.toThrow("nome de cada acompanhante");
+  });
+
+  it.each([
+    ["duração fora de 30 min a 2 h", { startsAt: sat(17 * 60), durationMin: 45, companions: ["Ana Lima"] }],
+    ["horário fora da grade de 30 min", { startsAt: sat(17 * 60 + 10), durationMin: 60, companions: ["Ana Lima"] }],
+    [
+      "mais pessoas que o permitido",
+      { startsAt: sat(17 * 60), durationMin: 60, companions: Array.from({ length: 98 }, (_, i) => `Pessoa ${i}`) },
+    ],
+    [
+      "dia fechado (segunda)",
+      { startsAt: salonTime(addDays(saturday, 2), 17 * 60), durationMin: 60, companions: ["Ana Lima"] },
+    ],
+    ["passar do fechamento", { startsAt: sat(21 * 60), durationMin: 120, companions: ["Ana Lima"] }],
+  ])("recusa %s", async (_, req) => {
+    await expect(
+      createBooking({ userId: users[0], experienceId: await experienceId("cha-e-dim-sum"), ...req }),
+    ).rejects.toThrow(BookingError);
   });
 });
 
 describe("remarcar e cancelar", () => {
-  const sunday = addDays(date, 1);
-  const at = (minutes: number) => salonTime(sunday, minutes);
-
-  it("remarcar para um horário que se sobrepõe ao atual: a própria reserva não ocupa a vaga", async () => {
-    const { id } = await experience("cerimonia-gongfu"); // capacidade 1
-    const booking = await createBooking({ userId, experienceId: id, startsAt: at(16 * 60), guests: 2 });
-    const moved = await rescheduleBooking({ userId, bookingId: booking.id, startsAt: at(16 * 60 + 30), guests: 3 });
-    expect(moved.startsAt).toEqual(at(16 * 60 + 30));
+  it("remarcar para um horário que se sobrepõe ao atual, mudando a duração", async () => {
+    const id = await experienceId("cerimonia-gongfu");
+    const booking = await createBooking({
+      userId: users[0],
+      experienceId: id,
+      startsAt: sun(13 * 60),
+      durationMin: 60,
+      companions: ["Ana Lima"],
+    });
+    const moved = await rescheduleBooking({
+      userId: users[0],
+      bookingId: booking.id,
+      startsAt: sun(13 * 60 + 30),
+      durationMin: 120,
+      companions: ["Ana Lima", "Bia Rocha"],
+    });
+    expect(moved.startsAt).toEqual(sun(13 * 60 + 30));
+    expect(moved.endsAt).toEqual(sun(15 * 60 + 30));
     expect(moved.guests).toBe(3);
   });
 
-  it("não deixa remarcar para um horário que já está lotado", async () => {
-    const { id } = await experience("cerimonia-gongfu");
-    const mine = await createBooking({ userId, experienceId: id, startsAt: at(12 * 60), guests: 2 });
-    const theirs = await createBooking({ userId, experienceId: id, startsAt: at(19 * 60), guests: 2 });
-    await expect(rescheduleBooking({ userId, bookingId: mine.id, startsAt: theirs.startsAt, guests: 2 })).rejects.toThrow(
-      "indisponível",
+  it("não deixa remarcar para um horário com as 4 salas ocupadas", async () => {
+    const id = await experienceId("mesa-de-cha");
+    await race(
+      users
+        .slice(1, 5)
+        .map((userId) => ({
+          userId,
+          experienceId: id,
+          startsAt: sun(18 * 60),
+          durationMin: 60,
+          companions: ["Ana Lima"],
+        })),
     );
+    const mine = await createBooking({
+      userId: users[5],
+      experienceId: id,
+      startsAt: sun(11 * 60),
+      durationMin: 60,
+      companions: ["Ana Lima"],
+    });
+    await expect(
+      rescheduleBooking({
+        userId: users[5],
+        bookingId: mine.id,
+        startsAt: sun(18 * 60),
+        durationMin: 60,
+        companions: ["Ana Lima"],
+      }),
+    ).rejects.toThrow("indisponível");
   });
 
-  it("só o dono cancela, e a vaga volta a ficar livre", async () => {
-    const { id } = await experience("cerimonia-gongfu");
-    const booking = await createBooking({ userId, experienceId: id, startsAt: at(14 * 60), guests: 2 });
-    await expect(cancelBooking({ userId: "outro-usuario", bookingId: booking.id })).rejects.toThrow("não encontrada");
+  it("só o dono cancela, e a sala volta a ficar livre", async () => {
+    const id = await experienceId("mesa-de-cha");
+    const full = await race(
+      users
+        .slice(6, 10)
+        .map((userId) => ({
+          userId,
+          experienceId: id,
+          startsAt: sun(20 * 60),
+          durationMin: 60,
+          companions: ["Ana Lima"],
+        })),
+    );
+    const late = {
+      userId: users[10],
+      experienceId: id,
+      startsAt: sun(20 * 60),
+      durationMin: 60,
+      companions: ["Ana Lima"],
+    };
+    await expect(createBooking(late)).rejects.toThrow("indisponível");
 
-    await cancelBooking({ userId, bookingId: booking.id });
-    const again = await createBooking({ userId, experienceId: id, startsAt: at(14 * 60), guests: 2 });
-    expect(again.status).toBe("CONFIRMED");
+    await expect(cancelBooking({ userId: users[10], bookingId: full[0].id })).rejects.toThrow("não encontrada");
+    await cancelBooking({ userId: full[0].userId, bookingId: full[0].id });
+    expect((await createBooking(late)).roomId).toBe(full[0].roomId);
   });
 
   it("recusa alteração a menos de 24h do horário", async () => {
-    const { id } = await experience("cha-e-dim-sum");
-    const booking = await createBooking({ userId, experienceId: id, startsAt: at(18 * 60), guests: 2 });
+    const booking = await createBooking({
+      userId: users[11],
+      experienceId: await experienceId("cha-e-dim-sum"),
+      startsAt: sun(16 * 60),
+      durationMin: 30,
+      companions: ["Ana Lima"],
+    });
     const now = new Date(booking.startsAt.getTime() - 23 * 3_600_000);
-    await expect(cancelBooking({ userId, bookingId: booking.id, now })).rejects.toThrow("24 horas");
+    await expect(cancelBooking({ userId: users[11], bookingId: booking.id, now })).rejects.toThrow("24 horas");
   });
 });

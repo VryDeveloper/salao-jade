@@ -3,12 +3,16 @@ import { logout } from "@/app/(auth)/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { Brand } from "./brand";
 
-type Page = "agenda" | "reservas";
+type Page = "agenda" | "reservas" | "admin";
 
-const NAV: { page: Page; href: string; label: string }[] = [
+// A ordem do menu define a direção: ir para a direita no menu desliza para a esquerda, e vice-versa
+const NAV: { page: Page; href: string; label: string; adminOnly?: boolean }[] = [
   { page: "agenda", href: "/agenda", label: "Agendar" },
   { page: "reservas", href: "/reservas", label: "Minhas reservas" },
+  { page: "admin", href: "/admin", label: "Painel do salão", adminOnly: true },
 ];
+const direction = (from: Page, to: Page) =>
+  NAV.findIndex((n) => n.page === to) > NAV.findIndex((n) => n.page === from) ? "nav-forward" : "nav-back";
 
 const initials = (name: string) =>
   name
@@ -22,7 +26,7 @@ const initials = (name: string) =>
 export async function SiteHeader({ current }: { current: Page }) {
   const user = await getCurrentUser();
   return (
-    <SiteHeaderShell current={current}>
+    <SiteHeaderShell current={current} isAdmin={user.role === "ADMIN"}>
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
@@ -41,14 +45,26 @@ export async function SiteHeader({ current }: { current: Page }) {
   );
 }
 
-export function SiteHeaderShell({ current, children }: { current: Page; children?: React.ReactNode }) {
+export function SiteHeaderShell({
+  current,
+  // Enquanto a sessão carrega, só o próprio painel sabe que o usuário é admin
+  isAdmin = current === "admin",
+  children,
+}: {
+  current: Page;
+  isAdmin?: boolean;
+  children?: React.ReactNode;
+}) {
   return (
-    <header className="border-b border-line">
+    <header className="border-b border-line" style={{ viewTransitionName: "site-header" }}>
       <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3.5 sm:px-8">
         <Brand />
         {/* No celular: marca e usuário na primeira linha, menu inteiro embaixo */}
-        <nav aria-label="Principal" className="order-last flex w-full gap-1 sm:order-none sm:w-auto">
-          {NAV.map((item) =>
+        <nav
+          aria-label="Principal"
+          className="order-last -mx-1 flex w-full gap-1 overflow-x-auto px-1 whitespace-nowrap sm:order-none sm:mx-0 sm:w-auto sm:px-0"
+        >
+          {NAV.filter((item) => !item.adminOnly || isAdmin).map((item) =>
             item.page === current ? (
               <Link
                 key={item.page}
@@ -62,6 +78,7 @@ export function SiteHeaderShell({ current, children }: { current: Page; children
               <Link
                 key={item.page}
                 href={item.href}
+                transitionTypes={[direction(current, item.page)]}
                 className="border-b-2 border-transparent px-3.5 py-3 text-sm text-muted transition-[color,border-color] duration-200 hover:border-line-strong hover:text-cream"
               >
                 {item.label}

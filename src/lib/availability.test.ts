@@ -1,15 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { addDays, buildSlots, isChangeable, overlaps, salonDate, salonTime, salonWeekday } from "./availability";
+import {
+  addDays,
+  buildSlots,
+  isChangeable,
+  isValidDuration,
+  overlaps,
+  salonDate,
+  salonTime,
+  salonWeekday,
+} from "./availability";
 
 const DATE = "2026-11-07"; // sábado
 const HOURS = { opensAt: 11 * 60, closesAt: 22 * 60 };
 const BEFORE = new Date("2026-11-01T00:00:00Z");
+const ROOMS = ["sala-1", "sala-2", "sala-3", "sala-4"];
 
 const at = (hhmm: string) => new Date(`${DATE}T${hhmm}:00-03:00`);
-const times = (slots: { startsAt: Date }[]) =>
-  slots.map((s) => s.startsAt.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }));
+const hhmm = (d: Date) =>
+  d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+const booking = (from: string, to: string, roomId: string, userId = "outro") => ({
+  startsAt: at(from),
+  endsAt: at(to),
+  roomId,
+  userId,
+});
 
-describe("salonTime / salonWeekday", () => {
+describe("salonTime / salonDate / salonWeekday", () => {
   it("converte hora local do salão para UTC", () => {
     expect(salonTime(DATE, 11 * 60).toISOString()).toBe("2026-11-07T14:00:00.000Z");
   });
@@ -30,39 +46,74 @@ describe("salonTime / salonWeekday", () => {
   });
 });
 
-describe("buildSlots", () => {
-  const base = { date: DATE, hours: HOURS, durationMin: 90, capacity: 1, bookings: [], now: BEFORE };
+describe("isValidDuration", () => {
+  it("aceita só 30 min a 2 h, de meia em meia hora", () => {
+    expect([30, 60, 90, 120].every(isValidDuration)).toBe(true);
+    expect([0, 15, 45, 150, 180].some(isValidDuration)).toBe(false);
+  });
+});
 
-  it("gera horários a cada 30 min e só os que terminam até o fechamento", () => {
-    const t = times(buildSlots(base));
-    expect(t[0]).toBe("11:00");
-    expect(t.at(-1)).toBe("20:30"); // 20:30 + 90 min = 22:00
-    expect(t).toHaveLength(20);
+describe("buildSlots", () => {
+  const base = { date: DATE, hours: HOURS, durationMin: 120, rooms: ROOMS, bookings: [], now: BEFORE };
+  const slotAt = (slots: ReturnType<typeof buildSlots>, time: string) =>
+    slots.find((s) => s.startsAt.getTime() === at(time).getTime())!;
+
+  it("gera horários a cada 30 min que terminam até o fechamento, conforme a duração", () => {
+    const twoHours = buildSlots(base).map((s) => hhmm(s.startsAt));
+    expect(twoHours[0]).toBe("11:00");
+    expect(twoHours.at(-1)).toBe("20:00"); // 20:00 + 2 h = 22:00
+    expect(buildSlots({ ...base, durationMin: 30 }).map((s) => hhmm(s.startsAt)).at(-1)).toBe("21:30");
   });
 
   it("dia fechado não tem horários", () => {
     expect(buildSlots({ ...base, hours: null })).toEqual([]);
   });
 
-  it("reserva bloqueia todo horário que se sobrepõe a ela", () => {
-    const slots = buildSlots({ ...base, bookings: [{ startsAt: at("14:00"), endsAt: at("15:30") }] });
-    const blocked = times(slots.filter((s) => !s.available));
-    // 12:30 termina às 14:00 (encosta, não sobrepõe); 15:30 começa quando a reserva termina
-    expect(blocked).toEqual(["13:00", "13:30", "14:00", "14:30", "15:00"]);
+  it("ocupa a primeira sala livre durante todo o intervalo", () => {
+    const slots = buildSlots({ ...base, bookings: [booking("14:00", "15:00", "sala-1")] });
+    expect(slotAt(slots, "13:30").roomId).toBe("sala-2"); // 13:30–15:30 cruza a reserva da sala 1
+    expect(slotAt(slots, "15:00").roomId).toBe("sala-1"); // encosta às 15:00, não sobrepõe
+    expect(slotAt(slots, "11:00").roomId).toBe("sala-1"); // 11:00–13:00 termina antes da reserva
   });
 
-  it("respeita a capacidade de reservas simultâneas", () => {
-    const booking = { startsAt: at("14:00"), endsAt: at("15:30") };
-    const slot14 = (bookings: typeof booking[]) =>
-      buildSlots({ ...base, capacity: 2, bookings }).find((s) => s.startsAt.getTime() === at("14:00").getTime())!;
+  it("fica indisponível só quando as 4 salas estão ocupadas no intervalo", () => {
+    const three = ["sala-1", "sala-2", "sala-3"].map((r) => booking("16:00", "17:00", r));
+    expect(slotAt(buildSlots({ ...base, durationMin: 60, bookings: three }), "16:00")).toMatchObject({
+      available: true,
+      roomId: "sala-4",
+    });
 
-    expect(slot14([booking]).available).toBe(true);
-    expect(slot14([booking, booking]).available).toBe(false);
+    const four = [...three, booking("16:30", "17:30", "sala-4")];
+    expect(slotAt(buildSlots({ ...base, durationMin: 60, bookings: four }), "16:00")).toMatchObject({
+      available: false,
+      roomId: null,
+    });
+  });
+
+  it("conta por sala, não por número de reservas", () => {
+    // 4 reservas sobrepostas, mas duas na mesma sala em momentos diferentes: a sala 4 continua livre
+    const bookings = [
+      booking("14:00", "14:30", "sala-1"),
+      booking("15:00", "15:30", "sala-1"),
+      booking("14:00", "16:00", "sala-2"),
+      booking("14:00", "16:00", "sala-3"),
+    ];
+    expect(slotAt(buildSlots({ ...base, bookings }), "14:00")).toMatchObject({ available: true, roomId: "sala-4" });
+  });
+
+  it("o próprio cliente não consegue outra reserva sobreposta, mesmo com sala livre", () => {
+    const bookings = [booking("16:00", "17:00", "sala-1", "eu")];
+    const slots = buildSlots({ ...base, durationMin: 60, bookings, userId: "eu" });
+    expect(slotAt(slots, "15:30")).toMatchObject({ mine: true, available: false, roomId: "sala-2" });
+    expect(slotAt(slots, "17:00")).toMatchObject({ mine: false, available: true });
+
+    // para outra pessoa, o mesmo horário segue livre
+    expect(slotAt(buildSlots({ ...base, durationMin: 60, bookings, userId: "voce" }), "16:00").available).toBe(true);
   });
 
   it("horário que já passou fica indisponível", () => {
-    const slots = buildSlots({ ...base, now: at("15:10") });
-    expect(times(slots.filter((s) => s.available))[0]).toBe("15:30");
+    const slots = buildSlots({ ...base, durationMin: 30, now: at("15:10") });
+    expect(hhmm(slots.find((s) => s.available)!.startsAt)).toBe("15:30");
   });
 });
 

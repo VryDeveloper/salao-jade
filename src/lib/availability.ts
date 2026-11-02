@@ -1,9 +1,20 @@
 // shortcut: offset fixo, exato porque São Paulo não tem horário de verão desde 2019; trocar por uma lib de fuso se o salão mudar de cidade ou o horário de verão voltar
 export const SALON_UTC_OFFSET = "-03:00";
 export const SLOT_STEP_MIN = 30;
+/** Quanto tempo o cliente pode ficar: de 30 min a 2 h, de meia em meia hora */
+export const DURATIONS_MIN = [30, 60, 90, 120] as const;
+export const DEFAULT_DURATION_MIN = 60;
 
 export type Interval = { startsAt: Date; endsAt: Date };
-export type Slot = { startsAt: Date; endsAt: Date; available: boolean };
+export type Slot = {
+  startsAt: Date;
+  endsAt: Date;
+  available: boolean;
+  /** Sala livre durante todo o intervalo (a primeira, em ordem); null se todas ocupadas */
+  roomId: string | null;
+  /** O próprio cliente já tem reserva que se sobrepõe a este horário */
+  mine: boolean;
+};
 
 type BuildSlotsInput = {
   /** Dia local do salão, "YYYY-MM-DD" */
@@ -11,11 +22,16 @@ type BuildSlotsInput = {
   /** null = fechado nesse dia */
   hours: { opensAt: number; closesAt: number } | null;
   durationMin: number;
-  capacity: number;
-  /** Reservas confirmadas da experiência que tocam esse dia */
-  bookings: Interval[];
+  /** Ids das salas ativas, na ordem em que devem ser ocupadas */
+  rooms: string[];
+  /** Reservas confirmadas (de qualquer experiência) que tocam esse dia */
+  bookings: (Interval & { roomId: string; userId: string })[];
+  /** Cliente que está vendo a grade; sem ele, nenhum horário conta como "seu" */
+  userId?: string;
   now: Date;
 };
+
+export const isValidDuration = (min: number) => (DURATIONS_MIN as readonly number[]).includes(min);
 
 /** Converte "YYYY-MM-DD" + minutos desde 00:00 (hora local do salão) em um instante UTC. */
 export function salonTime(date: string, minutes: number): Date {
@@ -42,18 +58,23 @@ export function salonWeekday(date: string): number {
 }
 
 /**
- * Gera os horários do dia a cada SLOT_STEP_MIN. Um horário fica indisponível quando
- * já passou ou quando as reservas que se sobrepõem a ele atingiram a capacidade.
+ * Gera os horários do dia a cada SLOT_STEP_MIN para a duração escolhida. Um horário fica livre
+ * quando ainda não passou, existe uma sala sem nenhuma reserva sobreposta durante todo o
+ * intervalo, e o cliente não tem outra reserva nesse intervalo.
  */
-export function buildSlots({ date, hours, durationMin, capacity, bookings, now }: BuildSlotsInput): Slot[] {
+export function buildSlots({ date, hours, durationMin, rooms, bookings, userId, now }: BuildSlotsInput): Slot[] {
   if (!hours) return [];
 
   const slots: Slot[] = [];
   for (let m = hours.opensAt; m + durationMin <= hours.closesAt; m += SLOT_STEP_MIN) {
     const startsAt = salonTime(date, m);
     const endsAt = new Date(startsAt.getTime() + durationMin * 60_000);
-    const overlapping = bookings.filter((b) => overlaps(b, { startsAt, endsAt })).length;
-    slots.push({ startsAt, endsAt, available: startsAt > now && overlapping < capacity });
+    const overlapping = bookings.filter((b) => overlaps(b, { startsAt, endsAt }));
+    // Por sala, não por contagem: 4 reservas em só 3 salas ainda deixam uma sala livre
+    const busy = new Set(overlapping.map((b) => b.roomId));
+    const roomId = rooms.find((r) => !busy.has(r)) ?? null;
+    const mine = userId !== undefined && overlapping.some((b) => b.userId === userId);
+    slots.push({ startsAt, endsAt, roomId, mine, available: startsAt > now && roomId !== null && !mine });
   }
   return slots;
 }

@@ -7,8 +7,17 @@ const outline =
   "h-11 cursor-pointer rounded-md px-4 text-sm transition-[border-color,background-color,filter,scale] duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-wait";
 
 /** Cancelar pede confirmação antes: é irreversível. */
-export function CancelButton({ bookingId, label }: { bookingId: string; label: string }) {
-  const [error, action, pending] = useActionState(cancelBookingAction, undefined);
+export function CancelButton({
+  bookingId,
+  label,
+  action: cancel = cancelBookingAction,
+}: {
+  bookingId: string;
+  label: string;
+  /** O painel do salão passa a própria action (sem a regra das 24h) */
+  action?: (prev: string | undefined, formData: FormData) => Promise<string | undefined>;
+}) {
+  const [error, action, pending] = useActionState(cancel, undefined);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {

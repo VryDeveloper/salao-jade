@@ -13,5 +13,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/entrar`,
     reuseExistingServer: true,
     timeout: 180_000,
+    env: { NEXT_DIST_DIR: ".next-e2e" },
   },
 });

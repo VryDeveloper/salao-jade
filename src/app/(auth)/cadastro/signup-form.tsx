@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Field, FormAlert, primaryButton } from "@/components/field";
+import { MaskLine } from "@/components/mask-line";
 import { passwordStrength } from "@/lib/validation";
 import { signup } from "../actions";
 
@@ -24,7 +25,9 @@ export function SignupForm() {
     >
       <div className="flex flex-col gap-2.5">
         <span className="text-xs font-bold tracking-[0.18em] text-gold uppercase">Primeira visita</span>
-        <h1 className="font-display text-[52px] leading-none font-semibold">Criar conta</h1>
+        <h1 className="font-display text-[52px] leading-none font-semibold">
+          <MaskLine>Criar conta</MaskLine>
+        </h1>
         <p className="text-[15px] leading-relaxed text-muted">
           Leva menos de um minuto. Depois é só escolher a experiência e o horário.
         </p>
@@ -113,7 +116,7 @@ export function SignupForm() {
       </button>
       <p className="text-center text-sm text-muted">
         Já tem conta?{" "}
-        <Link href="/entrar" className="font-semibold text-gold hover:text-[#e2c27f]">
+        <Link href="/entrar" transitionTypes={["nav-back"]} className="font-semibold text-gold hover:text-[#e2c27f]">
           Entrar
         </Link>
       </p>

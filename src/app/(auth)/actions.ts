@@ -56,14 +56,14 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
     return { message: "Muitas tentativas. Tente novamente em 15 minutos.", values };
   }
 
-  const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true } });
+  const user = await db.user.findUnique({ where: { email }, select: { id: true, passwordHash: true, role: true } });
   // Verifica mesmo sem usuário para a resposta não revelar quais e-mails existem pelo tempo
   const ok = await verifyPassword(user?.passwordHash ?? (await dummyPasswordHash()), password);
   if (!user || !ok) return { message: "E-mail ou senha inválidos.", values };
 
   resetRateLimit(limitKey);
   await createSession(user.id, { persistent: formData.get("remember") === "on" });
-  redirect("/agenda");
+  redirect(user.role === "ADMIN" ? "/admin" : "/agenda");
 }
 
 export async function logout() {

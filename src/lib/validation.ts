@@ -27,6 +27,11 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Informe sua senha").max(128),
 });
 
+/** Nomes dos acompanhantes: o titular é o dono da conta, então a lista tem pessoas − 1 nomes. */
+export const companionsSchema = z.array(
+  z.string().trim().min(2, "Escreva o nome de cada acompanhante").max(80, "Nome muito longo"),
+);
+
 /** 0–3: tamanho mínimo, letras e números, símbolo ou 12+ caracteres. */
 export function passwordStrength(password: string): number {
   if (password.length < 8) return 0;

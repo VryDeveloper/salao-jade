@@ -15,43 +15,63 @@ Prisma 7 · Zod · argon2 · Vitest · Playwright
 ## O que dá para fazer
 
 - Criar conta e entrar, com sessão que expira e opção "manter conectado"
-- Escolher a experiência (mesa de chá, cerimônia gongfu, chá & dim sum), o dia e um horário livre
-- Ver na hora o que está ocupado, com dias fechados e horários passados bloqueados
-- Remarcar ou cancelar até 24 horas antes
+- Escolher a experiência (mesa de chá, cerimônia gongfu, chá & dim sum), **quanto tempo ficar** (30 min, 1 h,
+  1h30 ou 2 h), o dia e o horário de chegada
+- Receber uma das **4 salas** do salão, escolhida automaticamente, com início, fim e sala na confirmação
+- Ver na hora o que está ocupado e o que já é seu, com dias fechados e horários passados bloqueados
+- Informar **quem vai participar**: o titular é quem reservou, e cada acompanhante tem o nome registrado
+- Ver as reservas em cards com sala, experiência, horário, duração, participantes e código
+- Remarcar (inclusive mudando a duração e os acompanhantes) ou cancelar até 24 horas antes
+
+### Painel do salão (`/admin`)
+
+- **Reservas do dia**, de qualquer cliente, com contato (e-mail e telefone clicáveis), participantes e sala; o
+  salão pode cancelar a qualquer momento antes do início (a regra das 24h é só para o cliente)
+- **Clientes** com contato, número de reservas e próxima visita
+- **Funcionamento:** fechar dias (folgas, feriados), ativar e desativar salas e experiências. Fechar um dia ou
+  desativar uma sala é recusado se já houver reservas afetadas, para nenhum cliente ser surpreendido
+- O papel (`USER` ou `ADMIN`) é conferido no servidor em toda tela e ação; para quem não é admin, o painel
+  responde 404
 
 ## Destaques técnicos
 
 ### Sem reserva dupla, nem com cliques simultâneos
 
-Dois clientes podem confirmar o mesmo horário no mesmo instante. Criar e remarcar passam por
-[`claimSlot`](src/lib/bookings.ts), dentro de uma transação que trava a linha da experiência com
-`SELECT … FOR UPDATE`. As reservas daquela experiência são checadas e gravadas uma de cada vez, e quem chega depois
-recebe "esse horário acabou de ficar indisponível" com a grade já atualizada.
+O salão tem 4 salas compartilhadas por todas as experiências. Um horário só é reservado se houver **uma sala livre
+durante todo o intervalo**, e o mesmo cliente **não pode ter duas reservas que se sobrepõem**, em nenhuma experiência.
+
+Criar e remarcar passam por [`claimSlot`](src/lib/bookings.ts), dentro de uma transação que trava as salas com
+`SELECT … FOR UPDATE`. As reservas são checadas e gravadas uma de cada vez, então nem pedidos simultâneos ocupam a
+mesma sala, nem o mesmo cliente consegue duas reservas abrindo duas abas. Quem chega depois recebe "esse horário
+acabou de ficar indisponível" com a grade já atualizada.
 
 ```mermaid
 sequenceDiagram
     participant A as Cliente A
     participant B as Cliente B
     participant DB as Postgres
-    A->>DB: BEGIN · SELECT experiência FOR UPDATE
-    B->>DB: BEGIN · SELECT experiência FOR UPDATE
+    A->>DB: BEGIN · SELECT salas FOR UPDATE
+    B->>DB: BEGIN · SELECT salas FOR UPDATE
     Note over B,DB: B espera a trava de A
-    A->>DB: conta reservas sobrepostas · cabe · INSERT
+    A->>DB: procura sala livre no intervalo · Sala 4 · INSERT
     A->>DB: COMMIT (libera a trava)
     DB-->>B: trava liberada
-    B->>DB: conta reservas sobrepostas · lotado
+    B->>DB: procura sala livre no intervalo · nenhuma
     B->>DB: ROLLBACK → "horário indisponível"
 ```
 
-[`bookings.db.test.ts`](src/lib/bookings.db.test.ts) prova isso contra o Postgres real: 10 pedidos ao mesmo tempo
-geram **exatamente 1** reserva quando a capacidade é 1, e **exatamente 6** quando é 6.
+[`bookings.db.test.ts`](src/lib/bookings.db.test.ts) prova isso contra o Postgres real: **10 pessoas** pedindo o
+mesmo horário ao mesmo tempo geram **exatamente 4** reservas, uma em cada sala; **a mesma pessoa** pedindo 5 vezes ao
+mesmo tempo fica com **exatamente 1**.
 
 ### Uma regra de disponibilidade só
 
 Os horários não ficam salvos no banco: [`buildSlots`](src/lib/availability.ts) é uma função pura que gera a grade a
-cada 30 minutos dentro do expediente e marca como ocupado o horário que já passou ou cujas reservas sobrepostas
-atingiram a `capacity`. A mesma função monta a tela e valida a reserva no servidor, então a tela e o banco nunca
-discordam sobre o que está livre. Intervalos são meio-abertos: uma reserva que termina às 16:00 não bloqueia as 16:00.
+cada 30 minutos para a duração escolhida e, para cada horário, procura a primeira sala sem nenhuma reserva sobreposta.
+A checagem é **por sala, não por contagem**: quatro reservas sobrepostas, mas duas delas na mesma sala em momentos
+diferentes, ainda deixam uma sala livre. A mesma função monta a tela e valida a reserva no servidor, então a tela e o
+banco nunca discordam sobre o que está livre. Intervalos são meio-abertos: uma reserva que termina às 16:00 não
+bloqueia as 16:00.
 
 ### Autenticação feita à mão, com os cuidados de produção
 
@@ -66,8 +86,8 @@ discordam sobre o que está livre. Intervalos são meio-abertos: uma reserva que
 ### Next.js 16 com Cache Components
 
 O que é igual para todos (títulos, layout) sai pré-renderizado; o que depende da sessão ou da URL chega por
-streaming dentro de `<Suspense>`, com esqueletos de carregamento. Experiência e dia ficam na URL
-(`/agenda?exp=…&dia=…`): dá para compartilhar o link e o botão voltar funciona.
+streaming dentro de `<Suspense>`, com esqueletos de carregamento. Experiência, duração e dia ficam na URL
+(`/agenda?exp=…&dur=…&dia=…`): dá para compartilhar o link e o botão voltar funciona.
 
 ## Arquitetura
 
@@ -95,16 +115,18 @@ erDiagram
     User ||--o{ Session : tem
     User ||--o{ Booking : faz
     Experience ||--o{ Booking : recebe
+    Room ||--o{ Booking : ocupa
     Experience {
         string slug
-        int durationMin
-        int capacity "reservas simultâneas"
         int maxGuests
+    }
+    Room {
+        int number "Sala 1 a 4"
     }
     Booking {
         string code
         timestamptz startsAt
-        timestamptz endsAt
+        timestamptz endsAt "início + 30 min a 2 h"
         int guests
         enum status "CONFIRMED | CANCELLED"
     }
@@ -133,7 +155,14 @@ npm run db:seed      # experiências, horário de funcionamento e conta demo
 npm run dev
 ```
 
-Conta demo: `demo@salaojade.dev` / `chaverde123`.
+Contas criadas pelo seed:
+
+| Conta | E-mail | Senha |
+|---|---|---|
+| Cliente demo | `demo@salaojade.dev` | `chaverde123` |
+| Salão (painel `/admin`) | `admin@salaojade.dev` | `jade-admin-2026` |
+
+As duas são públicas para a demonstração. Em produção, troque a senha do admin ou não rode o seed.
 
 ## Testes
 

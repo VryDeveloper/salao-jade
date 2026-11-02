@@ -13,9 +13,15 @@ model User {
   email        String    @unique
   phone        String?
   passwordHash String
+  role         Role      @default(USER)
   createdAt    DateTime  @default(now()) @db.Timestamptz
   sessions     Session[]
   bookings     Booking[]
+}
+
+enum Role {
+  USER
+  ADMIN
 }
 
 /// id = SHA-256 do token do cookie; o token em si nunca é salvo
@@ -33,12 +39,18 @@ model Experience {
   slug        String    @unique
   name        String
   description String
-  durationMin Int
-  /// quantas reservas podem acontecer ao mesmo tempo (mesas / salas)
-  capacity    Int
   maxGuests   Int
   active      Boolean   @default(true)
   bookings    Booking[]
+}
+
+/// Salas físicas, compartilhadas por todas as experiências
+model Room {
+  id       String    @id
+  number   Int       @unique
+  name     String
+  active   Boolean   @default(true)
+  bookings Booking[]
 }
 
 /// Uma linha por dia aberto; dia sem linha = fechado
@@ -67,12 +79,17 @@ model Booking {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   experienceId String
   experience   Experience    @relation(fields: [experienceId], references: [id])
+  roomId       String
+  room         Room          @relation(fields: [roomId], references: [id])
   startsAt     DateTime      @db.Timestamptz
   endsAt       DateTime      @db.Timestamptz
+  /// Total de pessoas: o titular + os acompanhantes
   guests       Int
+  /// Nomes dos acompanhantes (o titular é o dono da conta); guests = 1 + companions.length
+  companions   String[]      @default([])
   status       BookingStatus @default(CONFIRMED)
   createdAt    DateTime      @default(now()) @db.Timestamptz
 
-  @@index([experienceId, startsAt])
-  @@index([userId])
+  @@index([roomId, startsAt])
+  @@index([userId, startsAt])
 }
