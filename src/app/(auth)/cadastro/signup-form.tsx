@@ -20,7 +20,7 @@ export function SignupForm() {
       action={action}
       onReset={() => setPassword("")}
       noValidate
-      className="flex w-full max-w-[460px] flex-col gap-5"
+      className="flex w-full max-w-[460px] animate-rise flex-col gap-5"
     >
       <div className="flex flex-col gap-2.5">
         <span className="text-xs font-bold tracking-[0.18em] text-gold uppercase">Primeira visita</span>
@@ -82,7 +82,10 @@ export function SignupForm() {
 
       <div className="flex items-center gap-1.5" aria-live="polite">
         {[1, 2, 3].map((level) => (
-          <div key={level} className={`h-1 flex-1 rounded-sm ${strength >= level ? "bg-gold" : "bg-[#3a2f27]"}`} />
+          <div
+            key={level}
+            className={`h-1 flex-1 rounded-sm transition-colors duration-300 ${strength >= level ? "bg-gold" : "bg-[#3a2f27]"}`}
+          />
         ))}
         <span className="ml-2 text-xs text-muted">Força da senha: {STRENGTH_LABEL[strength]}</span>
       </div>

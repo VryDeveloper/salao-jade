@@ -14,11 +14,11 @@ export function Field({ label, name, error, ...props }: FieldProps) {
         name={name}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        className="h-12 rounded-md border border-line-strong bg-field px-3.5 text-base text-cream placeholder:text-placeholder focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold aria-invalid:border-danger"
+        className="h-12 rounded-md border border-line-strong bg-field px-3.5 text-base text-cream transition-[border-color,background-color] duration-150 placeholder:text-placeholder hover:border-placeholder focus-visible:border-gold focus-visible:bg-[#201a16] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold aria-invalid:border-danger"
         {...props}
       />
       {error && (
-        <p id={errorId} className="text-[13px] text-danger">
+        <p id={errorId} className="animate-rise text-[13px] text-danger">
           {error[0]}
         </p>
       )}
@@ -27,12 +27,15 @@ export function Field({ label, name, error, ...props }: FieldProps) {
 }
 
 export const primaryButton =
-  "flex h-[52px] w-full cursor-pointer items-center justify-center rounded-md bg-cinnabar text-[15px] font-bold tracking-wider text-paper hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-wait disabled:opacity-70";
+  "flex h-[52px] w-full cursor-pointer items-center justify-center rounded-md bg-cinnabar text-[15px] font-bold tracking-wider text-paper transition-[filter,scale] duration-150 ease-out hover:brightness-110 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-wait disabled:opacity-70 disabled:active:scale-100";
 
 export function FormAlert({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p role="alert" className="rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+    <p
+      role="alert"
+      className="animate-rise rounded-md border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+    >
       {message}
     </p>
   );

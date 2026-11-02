@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import { Suspense } from "react";
+import { Suspense, type CSSProperties } from "react";
 import { primaryButton } from "@/components/field";
 import { SiteHeader, SiteHeaderShell } from "@/components/site-header";
 import { isChangeable, salonDate } from "@/lib/availability";
@@ -19,7 +19,13 @@ export default function ReservasPage(props: PageProps<"/reservas">) {
         <SiteHeader current="reservas" />
       </Suspense>
       <main className="mx-auto flex w-full max-w-[1240px] flex-col gap-10 px-5 pt-12 pb-18 sm:px-8">
-        <Suspense fallback={<div aria-hidden="true" className="h-64 animate-pulse rounded-lg bg-panel" />}>
+        <Suspense
+          fallback={
+            <div aria-busy="true" className="skeleton h-64 rounded-lg">
+              <span className="sr-only">Carregando suas reservas…</span>
+            </div>
+          }
+        >
           <Bookings searchParams={props.searchParams} />
         </Suspense>
       </main>
@@ -51,7 +57,7 @@ async function Bookings({ searchParams }: { searchParams: PageProps<"/reservas">
           </h1>
           <Link
             href="/agenda"
-            className="flex h-11 items-center rounded-md border border-gold px-5 text-sm font-semibold text-gold hover:text-[#e2c27f]"
+            className="flex h-11 items-center rounded-md border border-gold px-5 text-sm font-semibold text-gold transition-[color,background-color,scale] duration-150 hover:bg-gold/10 hover:text-[#e2c27f] active:scale-[0.97]"
           >
             Nova reserva
           </Link>
@@ -66,12 +72,16 @@ async function Bookings({ searchParams }: { searchParams: PageProps<"/reservas">
           </div>
         ) : (
           <ul className="flex flex-col border-t border-line">
-            {upcoming.map((b) => {
+            {upcoming.map((b, i) => {
               const chip = dayChip(salonDate(b.startsAt));
               const label = `${b.experience.name} de ${formatLongDate(b.startsAt)}`;
               const changeable = isChangeable(b.startsAt, now);
               return (
-                <li key={b.id} className="flex flex-wrap items-center gap-6 border-b border-line py-6">
+                <li
+                  key={b.id}
+                  style={{ "--i": i } as CSSProperties}
+                  className="stagger flex animate-rise flex-wrap items-center gap-6 border-b border-line py-6"
+                >
                   <div className="flex w-[72px] shrink-0 flex-col items-center">
                     <span className="text-xs font-bold tracking-[0.1em] text-muted uppercase">{chip.weekday}</span>
                     <span className="font-display text-[40px] leading-none font-semibold">{chip.day}</span>
@@ -87,7 +97,7 @@ async function Bookings({ searchParams }: { searchParams: PageProps<"/reservas">
                       <Link
                         href={`/agenda?exp=${b.experience.slug}&dia=${salonDate(b.startsAt)}&remarcar=${b.id}`}
                         aria-label={`Remarcar ${label}`}
-                        className="flex h-11 items-center rounded-md border border-line-strong px-4 text-sm text-cream hover:border-gold"
+                        className="flex h-11 items-center rounded-md border border-line-strong px-4 text-sm text-cream transition-[border-color,scale] duration-150 hover:border-gold active:scale-[0.97]"
                       >
                         Remarcar
                       </Link>

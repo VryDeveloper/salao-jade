@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { LinkPending } from "@/components/link-pending";
 import { addDays, salonDate } from "@/lib/availability";
 import { getCurrentUser } from "@/lib/auth";
 import { BOOKING_WINDOW_DAYS, getActiveExperiences, getChangeableBooking, getSchedule, getSlots } from "@/lib/bookings";
@@ -8,6 +9,9 @@ import { BookingPanel } from "./booking-panel";
 
 const HAN: Record<string, string> = { "mesa-de-cha": "茶", "cerimonia-gongfu": "功", "cha-e-dim-sum": "点" };
 const sectionTitle = "text-[13px] font-bold tracking-[0.14em] text-label uppercase";
+// Cards clicáveis: transição de cor + leve afundada ao pressionar
+const pressable =
+  "relative overflow-hidden transition-[border-color,background-color,color,translate,scale] duration-200 ease-out active:scale-[0.98]";
 
 type SearchParams = Promise<{ exp?: string | string[]; dia?: string | string[]; remarcar?: string | string[] }>;
 
@@ -76,13 +80,14 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
                   href={href(e.slug, day)}
                   scroll={false}
                   aria-current={active ? "true" : undefined}
-                  className={`flex items-center gap-3.5 rounded-lg border p-[18px] text-cream ${
+                  className={`${pressable} flex items-center gap-3.5 rounded-lg border p-[18px] text-cream ${
                     active ? "border-gold bg-[#221b16]" : "border-[#3a2f27] bg-panel hover:border-line-strong"
                   }`}
                 >
+                  <LinkPending />
                   <span
                     aria-hidden="true"
-                    className={`flex size-11 shrink-0 items-center justify-center rounded-full font-han text-xl ${
+                    className={`flex size-11 shrink-0 items-center justify-center rounded-full font-han text-xl transition-colors duration-200 ${
                       active ? "bg-cinnabar text-paper" : "border border-line-strong text-gold"
                     }`}
                   >
@@ -117,7 +122,7 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
             const base = "flex h-[84px] flex-col items-center justify-center gap-0.5 rounded-lg border";
             if (!hours) {
               return (
-                <span key={date} className={`${base} border-dashed border-line text-[#6b6055]`}>
+                <span key={date} className={`${base} border-[#3a2f27] bg-panel text-placeholder`}>
                   {content}
                   <span className="text-[10px] tracking-[0.1em] uppercase">Fechado</span>
                 </span>
@@ -130,12 +135,13 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
                 href={href(experience.slug, date)}
                 scroll={false}
                 aria-current={active ? "date" : undefined}
-                className={`${base} ${
+                className={`${pressable} ${base} ${
                   active
                     ? "border-cream bg-cream text-ink"
-                    : "border-[#3a2f27] bg-panel text-cream hover:border-line-strong"
+                    : "border-[#3a2f27] bg-panel text-cream hover:-translate-y-px hover:border-line-strong"
                 }`}
               >
+                <LinkPending />
                 {content}
               </Link>
             );
@@ -148,13 +154,14 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
 
 export function AgendaSkeleton() {
   return (
-    <div aria-hidden="true" className="flex animate-pulse flex-wrap gap-8">
-      <div className="flex flex-[999_1_600px] flex-col gap-10">
-        <div className="h-[84px] rounded-lg bg-panel" />
-        <div className="h-[84px] rounded-lg bg-panel" />
-        <div className="h-48 rounded-lg bg-panel" />
+    <div className="flex flex-wrap gap-8" aria-busy="true">
+      <span className="sr-only">Carregando a agenda…</span>
+      <div aria-hidden="true" className="flex flex-[999_1_600px] flex-col gap-10">
+        <div className="skeleton h-[84px] rounded-lg" />
+        <div className="skeleton h-[84px] rounded-lg" />
+        <div className="skeleton h-48 rounded-lg" />
       </div>
-      <div className="h-96 flex-[1_1_320px] rounded-[10px] bg-panel" />
+      <div aria-hidden="true" className="skeleton h-96 flex-[1_1_320px] rounded-[10px]" />
     </div>
   );
 }

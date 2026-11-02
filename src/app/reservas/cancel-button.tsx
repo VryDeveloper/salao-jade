@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { cancelBookingAction } from "./actions";
 
 const outline =
-  "h-11 cursor-pointer rounded-md px-4 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-wait";
+  "h-11 cursor-pointer rounded-md px-4 text-sm transition-[border-color,background-color,filter,scale] duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-wait";
 
 /** Cancelar pede confirmação antes: é irreversível. */
 export function CancelButton({ bookingId, label }: { bookingId: string; label: string }) {
@@ -25,7 +25,7 @@ export function CancelButton({ bookingId, label }: { bookingId: string; label: s
   }
 
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
+    <form action={action} className="flex animate-rise flex-wrap items-center gap-2">
       <input type="hidden" name="bookingId" value={bookingId} />
       <span className="text-sm text-label">Cancelar mesmo?</span>
       <button type="submit" disabled={pending} className={`${outline} bg-cinnabar font-semibold text-paper`}>

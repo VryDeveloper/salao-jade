@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useState, type CSSProperties, type ReactNode } from "react";
 import { FormAlert, primaryButton } from "@/components/field";
 import { formatLongDate, formatTime } from "@/lib/format";
 import { bookSlot } from "./actions";
@@ -18,7 +18,8 @@ type Props = {
 };
 
 const sectionTitle = "text-[13px] font-bold tracking-[0.14em] text-label uppercase";
-const slotBase = "h-12 rounded-md text-[15px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
+const slotBase =
+  "h-12 w-full rounded-md text-[15px] transition-[background-color,border-color,color,translate,scale] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold";
 
 export function BookingPanel({ experience, day, slots, reschedule, children }: Props) {
   const [state, action, pending] = useActionState(bookSlot, undefined);
@@ -49,7 +50,7 @@ export function BookingPanel({ experience, day, slots, reschedule, children }: P
             <div className="flex flex-wrap gap-[18px] text-[13px] text-muted">
               <Legend className="border border-placeholder">Livre</Legend>
               <Legend className="bg-cinnabar">Selecionado</Legend>
-              <Legend className="border border-dashed border-line-strong">Ocupado</Legend>
+              <Legend className="border border-[#3a2f27] bg-panel">Ocupado</Legend>
             </div>
           </div>
 
@@ -61,36 +62,36 @@ export function BookingPanel({ experience, day, slots, reschedule, children }: P
                   : `${freeCount} ${freeCount === 1 ? "horário livre" : "horários livres"} em ${formatLongDate(day)}`}
               </p>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2.5">
-                {slots.map((slot) => {
+                {slots.map((slot, i) => {
                   const time = formatTime(slot.startsAt);
-                  if (!slot.available) {
-                    return (
-                      <button
-                        key={slot.startsAt}
-                        type="button"
-                        disabled
-                        aria-label={`${time}, ocupado`}
-                        className={`${slotBase} cursor-not-allowed border border-dashed border-line text-[#6b6055] line-through`}
-                      >
-                        {time}
-                      </button>
-                    );
-                  }
                   const isSelected = slot.startsAt === chosen?.startsAt;
                   return (
-                    <button
-                      key={slot.startsAt}
-                      type="button"
-                      aria-pressed={isSelected}
-                      onClick={() => pick(slot.startsAt)}
-                      className={`${slotBase} cursor-pointer border ${
-                        isSelected
-                          ? "border-cinnabar bg-cinnabar font-bold text-paper"
-                          : "border-line-strong text-cream hover:border-gold"
-                      }`}
-                    >
-                      {time}
-                    </button>
+                    // Entrada em sequência no invólucro; o botão fica livre para o "pop" da seleção
+                    <div key={slot.startsAt} className="stagger animate-rise" style={{ "--i": i } as CSSProperties}>
+                      {!slot.available ? (
+                        <button
+                          type="button"
+                          disabled
+                          aria-label={`${time}, ocupado`}
+                          className={`${slotBase} cursor-not-allowed border border-[#3a2f27] bg-panel text-placeholder line-through decoration-placeholder/70`}
+                        >
+                          {time}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => pick(slot.startsAt)}
+                          className={`${slotBase} cursor-pointer border active:scale-[0.96] ${
+                            isSelected
+                              ? "animate-pop border-cinnabar bg-cinnabar font-bold text-paper"
+                              : "border-line-strong text-cream hover:-translate-y-px hover:border-gold"
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -112,8 +113,22 @@ export function BookingPanel({ experience, day, slots, reschedule, children }: P
         </h2>
 
         {confirmed ? (
-          <div role="status" className="flex flex-col gap-4">
-            <p className="text-xs font-bold tracking-[0.18em] text-gold uppercase">Reserva confirmada</p>
+          <div role="status" className="flex animate-rise flex-col gap-4">
+            <p className="flex items-center gap-2.5 text-xs font-bold tracking-[0.18em] text-gold uppercase">
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="size-7 shrink-0" fill="none">
+                <circle cx="12" cy="12" r="11" className="fill-cinnabar" />
+                <path
+                  d="M7 12.5l3.2 3.2L17 9"
+                  stroke="#fbf3e6"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="24"
+                  className="animate-draw"
+                />
+              </svg>
+              Reserva confirmada
+            </p>
             <p className="leading-relaxed">
               {confirmed.experience}, {formatLongDate(confirmed.startsAt)} às {formatTime(confirmed.startsAt)} para{" "}
               {confirmed.guests} {confirmed.guests === 1 ? "pessoa" : "pessoas"}.
@@ -124,7 +139,7 @@ export function BookingPanel({ experience, day, slots, reschedule, children }: P
             <button
               type="button"
               onClick={() => setDismissed(confirmed.code)}
-              className="h-11 cursor-pointer rounded-md border border-gold text-sm font-semibold text-gold hover:text-[#e2c27f]"
+              className="h-11 cursor-pointer rounded-md border border-gold text-sm font-semibold text-gold transition-[color,background-color,scale] duration-150 hover:bg-gold/10 hover:text-[#e2c27f] active:scale-[0.98]"
             >
               Fazer outra reserva
             </button>
@@ -133,7 +148,7 @@ export function BookingPanel({ experience, day, slots, reschedule, children }: P
             </Link>
           </div>
         ) : (
-          <form action={action} className="flex flex-col gap-[22px]">
+          <form action={action} className="flex animate-rise flex-col gap-[22px]">
             <input type="hidden" name="experienceId" value={experience.id} />
             <input type="hidden" name="startsAt" value={chosen?.startsAt ?? ""} />
             <input type="hidden" name="guests" value={guests} />
@@ -147,7 +162,9 @@ export function BookingPanel({ experience, day, slots, reschedule, children }: P
                 <div className="flex flex-col gap-1">
                   <dt className="text-xs tracking-[0.12em] text-muted uppercase">Pessoas</dt>
                   <dd className="font-semibold" aria-live="polite">
-                    {guests} {guests === 1 ? "pessoa" : "pessoas"}
+                    <span key={guests} className="inline-block animate-rise">
+                      {guests} {guests === 1 ? "pessoa" : "pessoas"}
+                    </span>
                   </dd>
                 </div>
                 <div className="flex gap-2">
@@ -203,7 +220,12 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1 border-b border-line pb-4">
       <dt className="text-xs tracking-[0.12em] text-muted uppercase">{label}</dt>
-      <dd className="font-semibold">{children}</dd>
+      <dd className="font-semibold">
+        {/* Remonta quando o valor muda: o novo valor entra suave em vez de trocar seco */}
+        <span key={String(children)} className="inline-block animate-rise">
+          {children}
+        </span>
+      </dd>
     </div>
   );
 }
@@ -225,7 +247,7 @@ function StepButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="size-11 cursor-pointer rounded-full border border-line-strong text-xl text-cream hover:border-gold disabled:cursor-not-allowed disabled:opacity-40"
+      className="size-11 cursor-pointer rounded-full border border-line-strong text-xl text-cream transition-[border-color,scale] duration-150 hover:border-gold active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
     >
       {children}
     </button>

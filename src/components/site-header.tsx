@@ -44,9 +44,10 @@ export async function SiteHeader({ current }: { current: Page }) {
 export function SiteHeaderShell({ current, children }: { current: Page; children?: React.ReactNode }) {
   return (
     <header className="border-b border-line">
-      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3.5 sm:px-8">
         <Brand />
-        <nav aria-label="Principal" className="flex flex-wrap gap-1">
+        {/* No celular: marca e usuário na primeira linha, menu inteiro embaixo */}
+        <nav aria-label="Principal" className="order-last flex w-full gap-1 sm:order-none sm:w-auto">
           {NAV.map((item) =>
             item.page === current ? (
               <Link
@@ -61,7 +62,7 @@ export function SiteHeaderShell({ current, children }: { current: Page; children
               <Link
                 key={item.page}
                 href={item.href}
-                className="border-b-2 border-transparent px-3.5 py-3 text-sm text-muted hover:text-cream"
+                className="border-b-2 border-transparent px-3.5 py-3 text-sm text-muted transition-[color,border-color] duration-200 hover:border-line-strong hover:text-cream"
               >
                 {item.label}
               </Link>

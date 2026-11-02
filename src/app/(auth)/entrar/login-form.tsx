@@ -9,7 +9,7 @@ export function LoginForm() {
   const [state, action, pending] = useActionState(login, undefined);
 
   return (
-    <form action={action} noValidate className="flex w-full max-w-[400px] flex-col gap-[22px]">
+    <form action={action} noValidate className="flex w-full max-w-[400px] animate-rise flex-col gap-[22px]">
       <div className="flex flex-col gap-2.5">
         <span className="text-xs font-bold tracking-[0.18em] text-gold uppercase">Bem-vindo de volta</span>
         <h1 className="font-display text-[52px] leading-none font-semibold">Entrar</h1>
