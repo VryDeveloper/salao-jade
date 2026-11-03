@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://jade:jade@localhost:5434/salao_jade
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: jade
+          POSTGRES_PASSWORD: jade
+          POSTGRES_DB: salao_jade
+        ports: ["5434:5432"]
+        options: >-
+          --health-cmd "pg_isready -U jade"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Banco (migrações + seed)
+        run: npx prisma migrate deploy && npx prisma db seed
+      - name: Lint
+        run: npm run lint
+      - name: Tipos
+        run: npx next typegen && npx tsc --noEmit
+      - name: Vitest (unitários + Postgres real)
+        run: npm test
+      - name: Playwright
+        run: npx playwright install --with-deps chromium && npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
