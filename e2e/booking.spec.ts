@@ -54,7 +54,8 @@ test("entrar, reservar, ver e cancelar", async ({ page, browser }) => {
   await expect(status).toContainText("Marina Souza, Ana Lima");
   const code = (await status.getByText(/^JD-/).innerText()).trim();
   // O horário reservado vira "sua reserva" para quem reservou
-  await expect(page.getByRole("button", { name: `${time}, conflita com uma reserva sua` })).toBeVisible();
+  await expect(page.getByRole("button", { name: `${time}, sua reserva` })).toBeVisible();
+  await expect(page.getByText(`Você já tem ${time} neste dia`)).toBeVisible();
 
   await page.getByRole("link", { name: "Ver minhas reservas" }).click();
   const item = page.getByRole("listitem").filter({ hasText: code });

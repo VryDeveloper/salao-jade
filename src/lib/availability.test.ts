@@ -104,8 +104,11 @@ describe("buildSlots", () => {
   it("o próprio cliente não consegue outra reserva sobreposta, mesmo com sala livre", () => {
     const bookings = [booking("16:00", "17:00", "sala-1", "eu")];
     const slots = buildSlots({ ...base, durationMin: 60, bookings, userId: "eu" });
-    expect(slotAt(slots, "15:30")).toMatchObject({ mine: true, available: false, roomId: "sala-2" });
-    expect(slotAt(slots, "17:00")).toMatchObject({ mine: false, available: true });
+    // 16:00–17:00 é a própria reserva; 15:30–16:30 só bate nela; 17:00 encosta e fica livre
+    expect(slotAt(slots, "16:00")).toMatchObject({ available: false, mine: { exact: true } });
+    expect(slotAt(slots, "15:30")).toMatchObject({ available: false, roomId: "sala-2", mine: { exact: false } });
+    expect(slotAt(slots, "15:30").mine?.startsAt).toEqual(at("16:00"));
+    expect(slotAt(slots, "17:00")).toMatchObject({ mine: null, available: true });
 
     // para outra pessoa, o mesmo horário segue livre
     expect(slotAt(buildSlots({ ...base, durationMin: 60, bookings, userId: "voce" }), "16:00").available).toBe(true);

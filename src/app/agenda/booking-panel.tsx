@@ -11,8 +11,13 @@ type Props = {
   durationMin: number;
   /** null quando não há dia aberto na janela */
   day: string | null;
-  /** `mine`: o próprio cliente já tem reserva que se sobrepõe a este horário */
-  slots: { startsAt: string; endsAt: string; available: boolean; mine: boolean }[];
+  /** `mine`: reserva do próprio cliente que bate neste horário; `exact` quando é a própria reserva */
+  slots: {
+    startsAt: string;
+    endsAt: string;
+    available: boolean;
+    mine: { startsAt: string; endsAt: string; exact: boolean } | null;
+  }[];
   /** Presente no modo remarcar */
   reschedule?: { bookingId: string; code: string; companions: string[] };
   /** Nome do titular, primeiro participante de toda reserva */
@@ -37,6 +42,8 @@ export function BookingPanel({ experience, durationMin, day, slots, reschedule, 
   const chosen = slots.find((s) => s.startsAt === selected && s.available);
   const confirmed = state?.booking && state.booking.code !== dismissed ? state.booking : null;
   const freeCount = slots.filter((s) => s.available).length;
+  // As reservas do próprio cliente neste dia, sem repetir (vários horários batem na mesma)
+  const ownToday = [...new Set(slots.flatMap((s) => (s.mine ? [formatRange(s.mine.startsAt, s.mine.endsAt)] : [])))];
 
   const pick = (startsAt: string) => {
     setSelected(startsAt);
@@ -56,7 +63,8 @@ export function BookingPanel({ experience, durationMin, day, slots, reschedule, 
             <div className="flex flex-wrap gap-[18px] text-[13px] text-muted">
               <Legend className="border border-placeholder">Livre</Legend>
               <Legend className="bg-cinnabar">Selecionado</Legend>
-              <Legend className="border border-dashed border-gold/70">Conflita com sua reserva</Legend>
+              <Legend className="border border-gold bg-gold/20">Sua reserva</Legend>
+              <Legend className="border border-dashed border-gold/60">Bate com sua reserva</Legend>
               <Legend className="border border-[#3a2f27] bg-panel">Ocupado</Legend>
             </div>
           </div>
@@ -68,6 +76,12 @@ export function BookingPanel({ experience, durationMin, day, slots, reschedule, 
                   ? `Nenhum horário livre para ${formatDuration(durationMin)} em ${formatLongDate(day)}.`
                   : `${freeCount} ${freeCount === 1 ? "horário livre" : "horários livres"} para ${formatDuration(durationMin)} em ${formatLongDate(day)}`}
               </p>
+              {ownToday.length > 0 && (
+                <p className="rounded-md border border-gold/40 bg-[#221b16] px-4 py-3 text-sm">
+                  Você já tem <strong className="text-gold">{ownToday.join(" e ")}</strong> neste dia. Horários que
+                  batem nesse intervalo ficam bloqueados para você.
+                </p>
+              )}
               <div className="grid grid-cols-[repeat(auto-fill,minmax(116px,1fr))] gap-2.5">
                 {slots.map((slot, i) => {
                   // O card mostra o intervalo inteiro da duração escolhida, não só a chegada
@@ -76,13 +90,23 @@ export function BookingPanel({ experience, durationMin, day, slots, reschedule, 
                   return (
                     // Entrada em sequência no invólucro; o botão fica livre para o "pop" da seleção
                     <div key={slot.startsAt} className="stagger animate-rise" style={{ "--i": i } as CSSProperties}>
-                      {slot.mine ? (
+                      {slot.mine?.exact ? (
                         <button
                           type="button"
                           disabled
-                          aria-label={`${time}, conflita com uma reserva sua`}
-                          title="Esse intervalo bate com uma reserva sua"
-                          className={`${slotBase} cursor-not-allowed border border-dashed border-gold/70 bg-gold/5 text-gold`}
+                          aria-label={`${time}, sua reserva`}
+                          title="Sua reserva"
+                          className={`${slotBase} cursor-default border border-gold bg-gold/20 font-semibold text-gold`}
+                        >
+                          {time}
+                        </button>
+                      ) : slot.mine ? (
+                        <button
+                          type="button"
+                          disabled
+                          aria-label={`${time}, bate com sua reserva das ${formatRange(slot.mine.startsAt, slot.mine.endsAt)}`}
+                          title={`Bate com sua reserva das ${formatRange(slot.mine.startsAt, slot.mine.endsAt)}`}
+                          className={`${slotBase} cursor-not-allowed border border-dashed border-gold/60 text-gold/80`}
                         >
                           {time}
                         </button>

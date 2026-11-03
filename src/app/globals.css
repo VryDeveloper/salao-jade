@@ -62,6 +62,14 @@
   }
 }
 
+/* Barra de rolagem sempre presente: sem isso a largura muda 16px entre páginas que rolam e que não rolam, no meio
+   da View Transition, e o navegador aborta com "Viewport size changed". (scrollbar-gutter: stable não segurou
+   a largura neste layout; medido.) color-scheme escuro faz o navegador desenhar a barra no tom do site. */
+html {
+  overflow-y: scroll;
+  color-scheme: dark;
+}
+
 body {
   background: var(--color-ink);
   color: var(--color-cream);

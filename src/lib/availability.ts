@@ -12,8 +12,11 @@ export type Slot = {
   available: boolean;
   /** Sala livre durante todo o intervalo (a primeira, em ordem); null se todas ocupadas */
   roomId: string | null;
-  /** O próprio cliente já tem reserva que se sobrepõe a este horário */
-  mine: boolean;
+  /**
+   * Reserva do próprio cliente que se sobrepõe a este horário, ou null. `exact`: é a própria reserva
+   * (mesmo início e fim), não só um horário vizinho que bate nela.
+   */
+  mine: (Interval & { exact: boolean }) | null;
 };
 
 type BuildSlotsInput = {
@@ -73,7 +76,14 @@ export function buildSlots({ date, hours, durationMin, rooms, bookings, userId, 
     // Por sala, não por contagem: 4 reservas em só 3 salas ainda deixam uma sala livre
     const busy = new Set(overlapping.map((b) => b.roomId));
     const roomId = rooms.find((r) => !busy.has(r)) ?? null;
-    const mine = userId !== undefined && overlapping.some((b) => b.userId === userId);
+    const own = userId === undefined ? undefined : overlapping.find((b) => b.userId === userId);
+    const mine = own
+      ? {
+          startsAt: own.startsAt,
+          endsAt: own.endsAt,
+          exact: own.startsAt.getTime() === startsAt.getTime() && own.endsAt.getTime() === endsAt.getTime(),
+        }
+      : null;
     slots.push({ startsAt, endsAt, roomId, mine, available: startsAt > now && roomId !== null && !mine });
   }
   return slots;

@@ -68,7 +68,11 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
         startsAt: s.startsAt.toISOString(),
         endsAt: s.endsAt.toISOString(),
         available: s.available,
-        mine: s.mine,
+        mine: s.mine && {
+          startsAt: s.mine.startsAt.toISOString(),
+          endsAt: s.mine.endsAt.toISOString(),
+          exact: s.mine.exact,
+        },
       }))}
       reschedule={
         lockedExperience
