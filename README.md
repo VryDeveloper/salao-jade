@@ -3,6 +3,9 @@
 Sistema de reservas para uma casa de chá: o cliente cria a conta, vê os horários livres de verdade e reserva,
 remarca ou cancela, sem chance de duas pessoas ficarem com a mesma vaga.
 
+**▶ Demo online: [salao-jade.vercel.app](https://salao-jade.vercel.app)** · cliente `demo@salaojade.dev` / `chaverde123` ·
+salão (painel) `admin@salaojade.dev` / `jade-admin-2026`
+
 **Stack:** Next.js 16 (App Router, Server Actions, Cache Components) · TypeScript · Tailwind CSS 4 · PostgreSQL ·
 Prisma 7 · Zod · argon2 · Vitest · Playwright
 
@@ -173,7 +176,7 @@ As duas são públicas para a demonstração. Em produção, troque a senha do a
 | Comando | O que cobre |
 |---|---|
 | `npm test` | Vitest: grade de horários, fuso, validação, limite de tentativas e, contra o Postgres, concorrência, remarcação, cancelamento e prazo de 24h |
-| `npm run test:e2e` | Playwright: visitante barrado, e o fluxo entrar → reservar → ver → cancelar num build de produção |
+| `npm run test:e2e` | Playwright: visitante barrado; entrar → reservar com acompanhante → ver → cancelar; painel só para admin; cliques rápidos na agenda. Builda e testa o build de produção, ou o site publicado com `E2E_BASE_URL=https://salao-jade.vercel.app` |
 | `npm run lint` | ESLint |
 
 Os testes de banco e o e2e precisam do Postgres no ar e semeado. `SCREENSHOTS=1 npm run test:e2e` regrava os prints

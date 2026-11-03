@@ -106,3 +106,19 @@ Telas: home, entrar, cadastro, 404, agenda, minhas reservas, painel (reservas, c
 ## 9. Dados de teste
 
 Todas as reservas criadas pelos testes foram canceladas (JD-64F10A, JD-A2C6A8, JD-5207B5 e as do e2e); usuários de teste do banco são apagados ao fim de cada execução.
+
+## 10. Produção — https://salao-jade.vercel.app (03/11/2026)
+
+Vercel + Neon (Postgres), deploy da `main`. Migração e seed rodaram no build (`vercel-build`).
+
+| Verificação | Resultado |
+|---|---|
+| e2e contra o site publicado (`E2E_BASE_URL`) | ✅ 4/4 (1 pulado, só print) |
+| Auditoria visual: 9 telas × 1440 e 390 px | ✅ sem rolagem lateral, fontes carregadas, nada sem nome acessível |
+| Fluido | ✅ anima; parado com movimento reduzido |
+| Títulos, cascata, pop, ✓, morph líquido, transições com direção | ✅ todos rodando (mesmos valores da seção 5) |
+| Cookie de sessão | ✅ `Secure`, `HttpOnly`, `SameSite=Lax`, invisível ao JavaScript |
+| Sair | ✅ depois de sair, `/agenda` volta a redirecionar para o login (307) |
+
+Observação: o link de prévia da branch (`salao-jade-git-main-…vercel.app`) exige login na Vercel; o endereço público é `salao-jade.vercel.app`.
+Reserva de teste criada e cancelada no site publicado: JD-552EA7 e as do e2e.
