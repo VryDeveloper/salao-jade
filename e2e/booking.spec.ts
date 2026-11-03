@@ -100,3 +100,24 @@ test("painel do salão: só para admin", async ({ page }) => {
   await page.getByRole("link", { name: "Funcionamento" }).click();
   await expect(page.getByRole("heading", { name: "Folgas e feriados" })).toBeVisible();
 });
+
+test("cliques rápidos na agenda não desfazem o passo anterior", async ({ page }) => {
+  await page.goto("/entrar");
+  await page.getByLabel("E-mail").fill("demo@salaojade.dev");
+  await page.getByLabel("Senha").fill("chaverde123");
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page).toHaveURL(/\/agenda$/);
+  await page.locator('section[aria-labelledby="h-hora"]').waitFor();
+
+  // Três escolhas seguidas, sem esperar a página trocar entre elas
+  const lastDay = page.locator('section[aria-labelledby="h-dia"] a').last();
+  const lastDate = new URL((await lastDay.getAttribute("href"))!, "http://x").searchParams.get("dia");
+  await page.getByRole("link", { name: /Mesa de chá/ }).click();
+  await page.getByRole("link", { name: "2 h", exact: true }).click();
+  await lastDay.click();
+
+  await expect(page).toHaveURL(new RegExp(`exp=mesa-de-cha.*dur=120.*dia=${lastDate}`));
+  await expect(page.getByRole("link", { name: /Mesa de chá/ })).toHaveAttribute("aria-current", "true");
+  await expect(page.getByRole("link", { name: "2 h", exact: true })).toHaveAttribute("aria-current", "true");
+  await expect(page.locator('section[aria-labelledby="h-dia"] a').last()).toHaveAttribute("aria-current", "date");
+});

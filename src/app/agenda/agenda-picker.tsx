@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { LinkPending } from "@/components/link-pending";
+import { ParamLink } from "./param-link";
 import { SelectedMorph } from "@/components/transitions";
 import { addDays, DEFAULT_DURATION_MIN, DURATIONS_MIN, isValidDuration, salonDate } from "@/lib/availability";
 import { getCurrentUser } from "@/lib/auth";
@@ -104,7 +104,9 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
               const active = e.id === experience.id;
               return (
                 <SelectedMorph key={e.id} name="experiencia-ativa" active={active}>
-                  <Link
+                  <ParamLink
+                    param="exp"
+                    value={e.slug}
                     href={href({ exp: e.slug })}
                     scroll={false}
                     aria-current={active ? "true" : undefined}
@@ -112,7 +114,6 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
                       active ? "border-gold bg-[#221b16]" : "border-[#3a2f27] bg-panel hover:border-line-strong"
                     }`}
                   >
-                    <LinkPending />
                     <span
                       aria-hidden="true"
                       className={`flex size-11 shrink-0 items-center justify-center rounded-full font-han text-xl transition-colors duration-200 ${
@@ -126,7 +127,7 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
                       <span className="text-[13px] text-muted">{e.description}</span>
                       <span className="text-[13px] text-placeholder">Até {e.maxGuests} pessoas</span>
                     </span>
-                  </Link>
+                  </ParamLink>
                 </SelectedMorph>
               );
             })}
@@ -143,7 +144,9 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
             const active = min === durationMin;
             return (
               <SelectedMorph key={min} name="duracao-ativa" active={active}>
-                <Link
+                <ParamLink
+                  param="dur"
+                  value={String(min)}
                   href={href({ dur: min })}
                   scroll={false}
                   aria-current={active ? "true" : undefined}
@@ -153,9 +156,8 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
                       : "border-[#3a2f27] bg-panel text-cream hover:border-line-strong"
                   }`}
                 >
-                  <LinkPending />
                   {formatDuration(min)}
-                </Link>
+                </ParamLink>
               </SelectedMorph>
             );
           })}
@@ -187,7 +189,9 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
             const active = date === day;
             return (
               <SelectedMorph key={date} name="dia-ativo" active={active}>
-                <Link
+                <ParamLink
+                  param="dia"
+                  value={date}
                   href={href({ dia: date })}
                   scroll={false}
                   aria-current={active ? "date" : undefined}
@@ -197,9 +201,8 @@ export async function AgendaPicker({ searchParams }: { searchParams: SearchParam
                       : "border-[#3a2f27] bg-panel text-cream hover:-translate-y-px hover:border-line-strong"
                   }`}
                 >
-                  <LinkPending />
                   {content}
-                </Link>
+                </ParamLink>
               </SelectedMorph>
             );
           })}

@@ -96,9 +96,12 @@ Telas: home, entrar, cadastro, 404, agenda, minhas reservas, painel (reservas, c
 3. **Teste e2e com corrida** entre dois cliques (seção 3).
 4. **Infraestrutura de teste:** o build do e2e agora vai para `.next-e2e` (variável `NEXT_DIST_DIR`), então roda junto com o `npm run dev` sem congelar o CSS dele; o ESLint ignora essa pasta; os testes de banco rodam um arquivo por vez, porque compartilham o mesmo Postgres.
 
-## 8. Ponto de atenção (não corrigido)
+## 8. Ponto de atenção — resolvido depois do relatório
 
-- **Cliques muito rápidos na agenda podem desfazer o passo anterior.** Experiência, duração e dia são links que mudam a URL; se alguém clicar no próximo antes da página atualizar, o link clicado ainda carrega a escolha antiga. Na prática a troca leva poucos décimos de segundo. Correção possível: bloquear os outros links enquanto um está carregando, ou montar o link no navegador a partir da URL atual.
+- **Cliques muito rápidos na agenda desfaziam o passo anterior.** Experiência, duração e dia eram links com a URL montada para a página que estava na tela; um clique antes da página atualizar levava a escolha antiga.
+- **Correção:** `ParamLink` monta a URL no clique, a partir da última escolha pedida (mesmo com a navegação em curso), e troca só o próprio parâmetro. O `href` do servidor continua para nova aba e sem JavaScript.
+- **Prova:** o e2e "cliques rápidos na agenda não desfazem o passo anterior" clica Mesa de chá → 2 h → último dia sem esperar. Na versão antiga ele **falha** (a URL termina em `exp=cerimonia-gongfu&dur=60`); com a correção, **passa**. Conferido também que o morph da seleção, a barra de carregamento e o Ctrl+clique continuam funcionando.
+- Suíte depois da correção: Vitest 47/47, e2e 4/4.
 
 ## 9. Dados de teste
 
