@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "vercel-build": "prisma migrate deploy && prisma db seed && next build"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",
