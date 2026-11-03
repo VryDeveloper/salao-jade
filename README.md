@@ -6,11 +6,15 @@ remarca ou cancela, sem chance de duas pessoas ficarem com a mesma vaga.
 **Stack:** Next.js 16 (App Router, Server Actions, Cache Components) · TypeScript · Tailwind CSS 4 · PostgreSQL ·
 Prisma 7 · Zod · argon2 · Vitest · Playwright
 
-![Agenda: experiência, dia e horário, com o resumo da reserva ao lado](docs/screenshots/agenda.jpg)
+![Agenda: experiência, duração, dia e horário de chegada, com o resumo e os participantes ao lado](docs/screenshots/agenda.jpg)
 
-| Login | Minhas reservas | Celular |
-|---|---|---|
-| ![Tela de login](docs/screenshots/entrar.jpg) | ![Lista de reservas com remarcar e cancelar](docs/screenshots/reservas.jpg) | ![Agenda no celular](docs/screenshots/agenda-mobile.jpg) |
+| Minhas reservas | Painel do salão |
+|---|---|
+| ![Card da reserva com sala, horário, duração, código e participantes](docs/screenshots/reservas.jpg) | ![Painel do salão: reservas do dia com contato do cliente](docs/screenshots/admin.jpg) |
+
+| Login | Celular |
+|---|---|
+| ![Tela de login com o fluido de chá em infusão](docs/screenshots/entrar.jpg) | ![Agenda no celular](docs/screenshots/agenda-mobile.jpg) |
 
 ## O que dá para fazer
 

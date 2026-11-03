@@ -3,7 +3,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const shoot = async (page: Page, name: string) => {
-  if (process.env.SCREENSHOTS) await page.screenshot({ path: `docs/screenshots/${name}.jpg`, quality: 80 });
+  if (!process.env.SCREENSHOTS) return;
+  // Tira o foco (sem anel dourado nem rolagem até o campo), volta ao topo e espera transições e entradas acabarem
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    window.scrollTo(0, 0);
+  });
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity));
+  await page.screenshot({ path: `docs/screenshots/${name}.jpg`, quality: 80 });
 };
 
 test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
@@ -13,7 +20,7 @@ test("visitante sem sessão vai para o login", async ({ page }) => {
   await expect(page).toHaveURL(/\/entrar$/);
 });
 
-test("entrar, reservar, ver e cancelar", async ({ page }) => {
+test("entrar, reservar, ver e cancelar", async ({ page, browser }) => {
   await page.goto("/entrar");
   await shoot(page, "entrar");
   await page.getByLabel("E-mail").fill("demo@salaojade.dev");
@@ -29,6 +36,7 @@ test("entrar, reservar, ver e cancelar", async ({ page }) => {
   await expect(page.getByRole("link", { name: "1h30", exact: true })).toHaveAttribute("aria-current", "true");
   await page.locator('section[aria-labelledby="h-dia"] a').last().click();
   await expect(page.locator('section[aria-labelledby="h-dia"] a').last()).toHaveAttribute("aria-current", "date");
+  const day = new URL(page.url()).searchParams.get("dia");
 
   const slot = page.locator('section[aria-labelledby="h-hora"] button[aria-pressed="false"]').nth(8);
   const time = await slot.innerText();
@@ -54,6 +62,29 @@ test("entrar, reservar, ver e cancelar", async ({ page }) => {
   await expect(item).toContainText("1h30");
   await expect(item).toContainText("Ana Lima");
   await shoot(page, "reservas");
+
+  // Print do painel com a reserva ainda viva (cards com participantes e contato do cliente)
+  if (process.env.SCREENSHOTS) {
+    const admin = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+    const adminPage = await admin.newPage();
+    await adminPage.goto("/entrar");
+    await adminPage.getByLabel("E-mail").fill("admin@salaojade.dev");
+    await adminPage.getByLabel("Senha").fill("jade-admin-2026");
+    await adminPage.getByRole("button", { name: "Entrar" }).click();
+    await expect(adminPage).toHaveURL(/\/admin$/);
+    await adminPage.goto(`/admin?dia=${day}`);
+    await expect(adminPage.locator("article").filter({ hasText: code })).toBeVisible();
+    // Privacidade: o banco local pode ter contas reais. O print vai para o README público,
+    // então só fica o card da conta demo criado por este teste.
+    await adminPage.evaluate((keep) => {
+      for (const card of document.querySelectorAll("article")) {
+        if (!card.textContent?.includes(keep)) card.closest("li")?.remove();
+      }
+    }, code);
+    await expect(adminPage.locator("body")).not.toContainText(/@(?!salaojade\.dev)[\w.-]+\.\w+/);
+    await shoot(adminPage, "admin");
+    await admin.close();
+  }
 
   await item.getByRole("button", { name: /^Cancelar/ }).click();
   await item.getByRole("button", { name: "Sim, cancelar" }).click();
